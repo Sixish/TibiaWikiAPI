@@ -1,5 +1,5 @@
 (function (scope) {
-  "use strict";
+	"use strict";
 	/*jslint browser: true*/
 	var Color, Math = window.Math;
 	Color = (function color() {
@@ -19,6 +19,7 @@
 		var rgb = this.convert("RGB", this.color());
 		return (rgb[0] << 16) + (rgb[1] << 8) + rgb[2];
 	};
+	/*jslint bitwise: false*/
 	Color.prototype.color = function (color) {
 		color = color || [0, 0, 0];
 		return function setColor(set) {
@@ -120,7 +121,6 @@
 			return this;
 		};
 	}());
-	/*jslint bitwise: false*/
 	Color.prototype.convert = function convert(model) {
 		var cvt = { RGB: {}, HSV: {}, HSL: {}, YUV: {}, LAB: {}, HEX: {} };
 		function max() {
@@ -249,7 +249,6 @@
 		cvt.LAB.HSL = function (lab) { /* TODO */ };
 		cvt.LAB.YUV = function (lab) { /* TODO */ };
 		cvt.LAB.LAB = function (lab) { return lab; };
-		// return just the data needed (cvt[model]) containing direct conversions
 		return cvt[this.model()][model](this.color());
 	};
 	Color.prototype.shift = function (increase) {
