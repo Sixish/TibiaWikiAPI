@@ -312,3 +312,19 @@
 	// expose to window/scope
 	scope.Color = Color;
 }(window));
+(function setup() {
+	"use strict";
+	/*globals Color*/
+	var rgb, hsv;
+	// RGB settings
+	rgb = new Color("RGB", [0, 0, 0]);
+	rgb.settings("minimum", [0, 0, 0]);
+	rgb.settings("maximum", [255, 255, 255]);
+	rgb.settings("outOfRange", "clip");
+	// HSV settings
+	hsv = new Color("HSV", [0, 0, 0]);
+	hsv.settings("mimimum", [0, 0, 0]);
+	hsv.settings("maximum", [360, 1, 1]);
+	hsv.settings("outOfRange", "wrap");
+	// ...
+}());
