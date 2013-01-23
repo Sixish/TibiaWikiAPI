@@ -2,6 +2,16 @@
 	"use strict";
 	/*jslint browser: true*/
 	var Color, Math = window.Math;
+	// math functions
+	function wrap(val, min, max) {
+		var interval;
+		max = max + 1;
+		interval = max - min;
+		return min + (val % interval);
+	}
+	function clip(val, min, max) {
+		return val > max ? max : val < min ? min : val;
+	}
 	Color = (function color() {
 		return function Color(model, color) {
 			if (typeof model === 'object' && model.length) {
@@ -22,39 +32,49 @@
 	/*jslint bitwise: false*/
 	Color.prototype.color = function (color) {
 		color = color || [0, 0, 0];
-		return function setColor(set) {
-			var type, i, len, max, min, ret;
-			if (set === undefined) { return color; }
-			type = typeof set;
+		return function setColor(model, channels) {
+			var type, i, len, max, min, oor, prec;
+			if (typeof model === 'object' && model.length) {
+				channels = model;
+				model = this.model();
+			}
+			max = this.settings("maximum");
+			min = this.settings("minimum");
+			oor = this.settings("outOfRange");
+			prec = this.settings("precision");
+			if (model === undefined) { return color; }
+			if (channels === undefined) { return this.convert(model); }
+			type = typeof channels;
+			if (type === 'object') {
+				for (i = 0, len = channels.length; i < len; i += 1) {
+					// shape according to precision setting
+					if (prec !== undefined) {
+						channels[i] = Math.round(channels[i] / prec[i]) * prec[i];
+					}
+					// color is out of range?
+					if (oor && (channels[i] > max || channels[i] < min)) {
+						if (oor === 'clip') { channels[i] = clip(channels[i], min[i], max[i]); }
+						if (oor === 'wrap') { channels[i] = wrap(channels[i], min[i], max[i]); }
+					}
+				}
+			}
+			if (type === 'object') {
+				color = channels;
+			}
 			if (type === 'number') {
 				/*jslint bitwise: true*/
-				set = [
-					set >> 16 & 0xFF,
-					(set - ((set >> 16) << 16) >> 8) & 0xFF,
-					(set - ((set >> 8) << 8)) & 0xFF
+				channels = [
+					channels >> 16 & 0xFF,
+					(channels - ((channels >> 16) << 16) >> 8) & 0xFF,
+					(channels - ((channels >> 8) << 8)) & 0xFF
 				];
 				/*jslint bitwise: false*/
-				color = set;
+				color = channels;
 				this.model("RGB");
 				return this;
 			}
-			if (type === 'string') {
-				color = this.convert(set);
-				this.model(set);
-				return this;
-			}
-			if (type === 'object' && set.length) {
-				ret = [];
-				max = this.settings("maximum");
-				min = this.settings("minimum");
-				for (i = 0, len = set.length; i < len; i += 1) {
-					if (set[i] > max[i]) { ret[i] = this.colorOutOfRange(set[i]); }
-					if (set[i] < min[i]) { ret[i] = this.colorOutOfRange(set[i]); }
-					ret[i] = set[i];
-				}
-				color = ret;
-				return this;
-			}
+			this.model(model);
+			return this;
 		};
 	};
 	Color.prototype.model = function (model) {
@@ -136,10 +156,20 @@
 		};
 	}());
 	Color.prototype.shift = function (increase) {
-		var i, len, shiftBy, color = this.color();
+		var i, len, shiftBy, color = this.color(), type;
 		shiftBy = arguments.length > 1 ? arguments : increase || 0;
+		type = typeof shiftBy;
 		for (i = 0, len = color.length; i < len; i += 1) {
-			color[i] += typeof shiftBy === 'object' ? shiftBy[i] : shiftBy;
+			color[i] += type === 'object' ? shiftBy[i] : shiftBy;
+		}
+		return this;
+	};
+	Color.prototype.amplify = function (amplitude) {
+		var i, len, ampBy, color = this.color(), type;
+		ampBy = arguments.length > 1 ? arguments : amplitude || 1;
+		type = typeof ampBy;
+		for (i = 0, len = color.length; i < len; i += 1) {
+			color[i] = color[i] * (type === 'object' ? ampBy[i] : ampBy);
 		}
 		return this;
 	};
@@ -313,12 +343,8 @@
 	/* YUV -> */
 	color = new Color("YUV", [0, 0, 0]);
 	color.convert("RGB", function (yuv) {
-		var y = yuv[0], u = yuv[1], v = yuv[2];
-		return [
-			clip(Math.round(y + 1.13983 * v), 0, 255),
-			clip(Math.round(y + -0.39465 * u + -0.58060 * v), 0, 255),
-			clip(Math.round(y + 2.03211 * u), 0, 255)
-		];
+		var color, y = yuv[0], u = yuv[1], v = yuv[2];
+		return new Color("RGB", [ (y + 1.13983 * v), (y + -0.39465 * u + -0.58060 * v), (y + 2.03211 * u) ]).color();
 	});
 	color.convert("HSV", function (yuv) { /* TODO */ });
 	color.convert("HSL", function (yuv) { /* TODO */ });
@@ -340,11 +366,13 @@
 	rgb = new Color("RGB", [0, 0, 0]);
 	rgb.settings("minimum", [0, 0, 0]);
 	rgb.settings("maximum", [255, 255, 255]);
+	rgb.settings("precision", [1, 1, 1]);
 	rgb.settings("outOfRange", "clip");
 	// HSV settings
 	hsv = new Color("HSV", [0, 0, 0]);
 	hsv.settings("mimimum", [0, 0, 0]);
 	hsv.settings("maximum", [360, 1, 1]);
+	rgb.settings("precision", [1, 0.001, 0.001]);
 	hsv.settings("outOfRange", "wrap");
 	// ...
 }(window));
