@@ -1,7 +1,7 @@
 (function (scope) {
 	"use strict";
 	/*jslint browser: true*/
-	var Color, Math = window.Math;
+	var Math = window.Math;
 	// math functions
 	function wrap(val, min, max) {
 		var interval;
@@ -12,55 +12,52 @@
 	function clip(val, min, max) {
 		return val > max ? max : val < min ? min : val;
 	}
-	Color = (function color() {
-		return function Color(model, color) {
-			if (typeof model === 'object' && model.length) {
-				color = model;
-				model = "RGB";
-			}
-			// setup
-			this.model = this.model(model);
-			this.color = this.color(color);
-			this.hook = this.hook();
-		};
-	}());
+	function Color(model, color) {
+		if (typeof model === 'object' && model.length) {
+			color = model;
+			model = "RGB";
+		}
+		// setup
+		this.model = this.model(model);
+		this.color = this.color(color);
+		this.hook = this.hook();
+	}
 	/*jslint bitwise: true*/
 	Color.prototype.valueOf = function () {
 		var rgb = this.convert("RGB", this.color());
 		return (rgb[0] << 16) + (rgb[1] << 8) + rgb[2];
 	};
 	/*jslint bitwise: false*/
+	Color.prototype.validate = function (color) {
+		var max, min, oor, prec, i, len;
+		color = color || this.color();
+		max = this.settings("maximum");
+		min = this.settings("minimum");
+		oor = this.settings("outOfRange");
+		prec = this.settings("precision");
+		for (i = 0, len = color.length; i < len; i += 1) {
+			if (prec !== undefined) {
+				color[i] = Math.round(color[i] / prec[i]) * prec[i];
+			}
+			if (oor && (color[i] > max[i] || color[i] < min[i])) {
+				if (oor === 'clip') { color[i] = clip(color[i], min[i], max[i]); }
+				if (oor === 'wrap') { color[i] = wrap(color[i], min[i], max[i]); }
+			}
+		}
+		return color;
+	};
 	Color.prototype.color = function (color) {
-		color = color || [0, 0, 0];
+		color = this.validate(color) || [0, 0, 0];
 		return function setColor(model, channels) {
-			var type, i, len, max, min, oor, prec;
+			var type;
 			if (typeof model === 'object' && model.length) {
 				channels = model;
 				model = this.model();
 			}
-			max = this.settings("maximum");
-			min = this.settings("minimum");
-			oor = this.settings("outOfRange");
-			prec = this.settings("precision");
 			if (model === undefined) { return color; }
 			if (channels === undefined) { return this.convert(model); }
 			type = typeof channels;
-			if (type === 'object') {
-				for (i = 0, len = channels.length; i < len; i += 1) {
-					// shape according to precision setting
-					if (prec !== undefined) {
-						channels[i] = Math.round(channels[i] / prec[i]) * prec[i];
-					}
-					// color is out of range?
-					if (oor && (channels[i] > max || channels[i] < min)) {
-						if (oor === 'clip') { channels[i] = clip(channels[i], min[i], max[i]); }
-						if (oor === 'wrap') { channels[i] = wrap(channels[i], min[i], max[i]); }
-					}
-				}
-			}
-			if (type === 'object') {
-				color = channels;
-			}
+			if (type === 'object') { color = channels; }
 			if (type === 'number') {
 				/*jslint bitwise: true*/
 				channels = [
@@ -133,6 +130,36 @@
 		this.color(model, this.convert(model));
 		return this;
 	};
+	Color.prototype.max = function (inc) {
+		var color = this.color(), i = 0, len = color.length, max = color[0];
+		for (i; i < len; i += 1) {
+			if (color[i] > max) {
+				max = color[i];
+			}
+		}
+		if (inc === undefined) { return max; }
+		for (i = 0, len = inc.length; i < len; i += 1) {
+			if (inc[i] > max) {
+				max = inc[i];
+			}
+		}
+		return max;
+	};
+	Color.prototype.min = function (inc) {
+		var color = this.color(), i = 0, len = color.length, min = color[0];
+		for (i; i < len; i += 1) {
+			if (color[i] < min) {
+				min = color[i];
+			}
+		}
+		if (inc === undefined) { return min; }
+		for (i = 0, len = inc.length; i < len; i += 1) {
+			if (inc[i] < min) {
+				min = inc[i];
+			}
+		}
+		return min;
+	};
 	Color.prototype.settings = (function () {
 		var settings = {};
 		return function modelSetting(setting, value) {
@@ -151,7 +178,7 @@
 			if (cModel === model) { return this.color(); }
 			if (model === undefined) { throw new Error("model is undefined."); }
 			if (conversion && typeof conversion === 'function') { cvt[cModel][model] = conversion; return; }
-			if (cvt[cModel] === undefined || cvt[cModel][model] === undefined) { throw new Error("No function to convert from " + this.model() + " to " + model + "."); }
+			if (cvt[cModel] === undefined || cvt[cModel][model] === undefined) { throw new Error("No function to convert from " + cModel + " to " + model + "."); }
 			return cvt[cModel][model](this.color());
 		};
 	}());
@@ -212,7 +239,7 @@
 		ret += 0.7152 * color[1];
 		ret += 0.0722 * color[2];
 		ret = Math.round(ret);
-		return new Color(this.model(), new Color("RGB", [ ret, ret, ret ]).convert(this.model())).color;
+		return new Color(this.model(), new Color("RGB", [ ret, ret, ret ]).convert(this.model())).color();
 	};
 	Color.prototype.analogous = function () {
 		/* untested */
@@ -230,71 +257,33 @@
 	"use strict";
 	/*globals Color*/
 	var Color = window.Color, color;
-	function max() {
-		var i = 0, len = arguments.length, maximum;
-		for (i; i < len; i += 1) {
-			if (maximum === undefined || arguments[i] > maximum) {
-				maximum = arguments[i];
-			}
-		}
-		return maximum;
-	}
-	function min() {
-		var i = 0, len = arguments.length, minimum;
-		for (i; i < len; i += 1) {
-			if (minimum === undefined || arguments[i] < minimum) {
-				minimum = arguments[i];
-			}
-		}
-		return minimum;
-	}
-	function clip(val, min, max) {
-		var ret = val;
-		if (val < min) {
-			ret = min;
-		} else if (val > max) {
-			ret = max;
-		}
-		return ret;
-	}
 	/* RGB -> */
 	color = new Color("RGB", [0, 0, 0]);
 	color.convert("RGB", function (rgb) { return rgb; });
 	color.convert("HSV", function (rgb) {
-		var rgb_min, rgb_max, r = rgb[0], g = rgb[1], b = rgb[2], h, s, v;
-		rgb_min = min(r, g, b);
-		rgb_max = max(r, g, b);
+		var rgb_min, rgb_max, h, s, v;
+		rgb = new Color("RGB", rgb);
+		rgb_min = rgb.min();
+		rgb_max = rgb.max();
 		v = rgb_max / 255;
-		if (v === 0) {
-			h = s = 0;
-			return [ h, s, v ];
-		}
-		r = r / (v * 255);
-		g = g / (v * 255);
-		b = b / (v * 255);
-		rgb_min = min(r, g, b);
-		rgb_max = max(r, g, b);
+		if (v === 0) { h = s = 0; return new Color("HSV", [h, s, v]).color(); }
+		rgb.amplify(1 / (v * 255));
+		rgb_min = rgb.min();
+		rgb_max = rgb.max();
 		s = rgb_max - rgb_min;
-		if (s === 0) {
-			h = 0;
-			return [ h, s, v ];
-		}
-		r = (r - rgb_min) / s;
-		g = (g - rgb_min) / s;
-		b = (b - rgb_min) / s;
-		rgb_min = min(r, g, b);
-		rgb_max = max(r, g, b);
-		h = (360 + (rgb_max === r ? 60 * (g - b) : (rgb_max === g ? 120 + 60 * (b - r) : (240 + 60 * (r - g))))) % 360;
-		return [ h, s, v ];
+		if (s === 0) { h = 0; return new Color("HSV", [h, s, v]).color(); }
+		rgb.shift(-rgb_min);
+		rgb.amplify(1 / s);
+		rgb_min = rgb.min();
+		rgb_max = rgb.max();
+		rgb = rgb.color();
+		h = (360 + (rgb_max === rgb[0] ? 60 * (rgb[1] - rgb[2]) : (rgb_max === rgb[1] ? 120 + 60 * (rgb[2] - rgb[0]) : (240 + 60 * (rgb[0] - rgb[1]))))) % 360;
+		return new Color("HSV", [h, s, v]).color();
 	});
 	color.convert("HSL", function (rgb) {});
 	color.convert("YUV", function (rgb) {
 		var r = rgb[0], g = rgb[1], b = rgb[2];
-		return [
-			clip(Math.round(0.299 * r + 0.587 * g + 0.114 * b), 0, 255),
-			clip(Math.round(-0.14713 * r + -0.28886 * g + 0.436 * b), 0, 255),
-			clip(Math.round(0.615 * r + -0.51499 * g + -0.10001 * b), 0, 255)
-		];
+		return new Color("YUV", [0.299 * r + 0.587 * g + 0.114 * b], [-0.14713 * r + -0.28886 * g + 0.436 * b], [0.615 * r + -0.51499 * g + -0.10001 * b]).color();
 	});
 	color.convert("LAB", function (rgb) { /* TODO */ });
 	/* HSV -> */
@@ -323,11 +312,7 @@
 				rgb = [ chroma, 0, mI ];
 			}
 		}
-		return [
-			Math.round((rgb[0] + vmc) * 255),
-			Math.round((rgb[1] + vmc) * 255),
-			Math.round((rgb[2] + vmc) * 255)
-		];
+		return new Color((rgb[0] + vmc) * 255, (rgb[1] + vmc) * 255, (rgb[2] + vmc) * 255).color();
 	});
 	color.convert("HSV", function (hsv) { return hsv; });
 	color.convert("HSL", function (hsv) { /* TODO */ });
@@ -343,7 +328,7 @@
 	/* YUV -> */
 	color = new Color("YUV", [0, 0, 0]);
 	color.convert("RGB", function (yuv) {
-		var color, y = yuv[0], u = yuv[1], v = yuv[2];
+		var y = yuv[0], u = yuv[1], v = yuv[2];
 		return new Color("RGB", [ (y + 1.13983 * v), (y + -0.39465 * u + -0.58060 * v), (y + 2.03211 * u) ]).color();
 	});
 	color.convert("HSV", function (yuv) { /* TODO */ });
@@ -372,7 +357,7 @@
 	hsv = new Color("HSV", [0, 0, 0]);
 	hsv.settings("mimimum", [0, 0, 0]);
 	hsv.settings("maximum", [360, 1, 1]);
-	rgb.settings("precision", [1, 0.001, 0.001]);
+	hsv.settings("precision", [1, 0.001, 0.001]);
 	hsv.settings("outOfRange", "wrap");
 	// ...
 }(window));
