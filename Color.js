@@ -35,6 +35,14 @@
 			return this.hexadecimal(colors[name] || null);
 		};
 	}());
+	Color.prototype.normalize = function (max) {
+		var color = this.color(), i, len, ret = [];
+		max = max || this.settings("maximum") || [255, 255, 255];
+		for (i = 0, len = color.length; i < len; i += 1) {
+			ret[i] = color[i] / max[i];
+		}
+		return ret;
+	};
 	Color.prototype.validate = function (color) {
 		var max, min, oor, prec, i, len;
 		color = color || this.color();
@@ -92,8 +100,8 @@
 				];
 				/*jslint bitwise: false*/
 				color = channels;
-				return this;
 			}
+			this.hook("onChangeColor").fire();
 			return this;
 		};
 	};
@@ -111,11 +119,14 @@
 		};
 	};
 	Color.prototype.hook = (function () {
-		function Hook() { this.hooks = []; }
+		function Hook(object) {
+			this.object = object;
+			this.hooks = [];
+		}
 		Hook.prototype.fire = function () {
 			var i, len = this.hooks.length;
 			for (i = 0; i < len; i += 1) {
-				if (!this.hooks[i].apply(this, arguments)) {
+				if (this.hooks[i].apply(this.object, arguments) === false) {
 					return;
 				}
 			}
@@ -140,7 +151,7 @@
 					throw new Error("Cannot create hook without a function.");
 				}
 				if (hooks[hook] === undefined) {
-					hooks[hook] = new Hook();
+					hooks[hook] = new Hook(this);
 				}
 				if (func === undefined) {
 					return hooks[hook];
