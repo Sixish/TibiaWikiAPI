@@ -93,14 +93,10 @@
 			if (type === 'string') { color = this.getColorByName(channels); }
 			if (type === 'number') {
 				/*jslint bitwise: true*/
-				channels = [
-					channels >> 16 & 0xFF,
-					(channels - ((channels >> 16) << 16) >> 8) & 0xFF,
-					(channels - ((channels >> 8) << 8)) & 0xFF
-				];
+				color = [ channels >> 16 & 0xFF, (channels - ((channels >> 16) << 16) >> 8) & 0xFF, (channels - ((channels >> 8) << 8)) & 0xFF ];
 				/*jslint bitwise: false*/
-				color = channels;
 			}
+			color = this.validate(color);
 			this.hook("onChangeColor").fire();
 			return this;
 		};
@@ -147,9 +143,6 @@
 			var hooks = {};
 			return function setHook(hook, func) {
 				if (hook === undefined) { return hooks; }
-				if (hooks[hook] === undefined && func === undefined) {
-					throw new Error("Cannot create hook without a function.");
-				}
 				if (hooks[hook] === undefined) {
 					hooks[hook] = new Hook(this);
 				}
@@ -385,13 +378,94 @@
 	rgb = new Color("RGB", [0, 0, 0]);
 	rgb.settings("minimum", [0, 0, 0]);
 	rgb.settings("maximum", [255, 255, 255]);
+	rgb.settings("names", [ "Red", "Green", "Blue" ]);
 	rgb.settings("precision", [1, 1, 1]);
 	rgb.settings("outOfRange", "clip");
 	// HSV settings
 	hsv = new Color("HSV", [0, 0, 0]);
 	hsv.settings("mimimum", [0, 0, 0]);
 	hsv.settings("maximum", [360, 1, 1]);
+	hsv.settings("names", [ "Hue", "Saturation", "Value" ]);
 	hsv.settings("precision", [1, 0.001, 0.001]);
 	hsv.settings("outOfRange", "wrap");
 	// ...
 }(window));
+(function colorSlider() {
+	"use strict";
+	/*globals window*/
+	var Color = window.Color;
+	Color.prototype.slider = function (parent) {
+		var color = this,
+			min = this.settings("minimum"),
+			max = this.settings("maximum"),
+			val = this.color(),
+			names = this.settings("names"),
+			i,
+			len,
+			sliders = [];
+		function getOffset(element) {
+			var x = 0, y = 0;
+			while (element && !isNaN(element.offsetTop) && !isNaN(element.offsetLeft)) {
+				x += element.offsetLeft - element.scrollLeft;
+				y += element.offsetTop - element.scrollTop;
+				element = element.offsetParent;
+			}
+			return [ x, y ];
+		}
+		function Slider(settings) {
+			var sliderrow, sliderhead, sliderslide, slideractive, sliderval;
+			settings = settings || {};
+			settings.parent = settings.parent || document.getElementById("API-Interface");
+			this.index = settings.index || 0;
+			sliderrow = document.createElement('div');
+			sliderhead = document.createElement('div');
+			sliderslide = document.createElement('div');
+			slideractive = document.createElement('div');
+			sliderval = document.createElement('div');
+			// classes
+			sliderhead.className = 'header';
+			sliderslide.className = 'slidebar';
+			slideractive.className = 'slider';
+			sliderval.className = 'number';
+			// styles
+			this.width = 255;
+			sliderslide.style.width = this.width + "px";
+			// text
+			sliderhead.appendChild(document.createTextNode(names[i]));
+			sliderval.appendChild(document.createTextNode(val[i]));
+			// append children
+			sliderrow.appendChild(sliderhead);
+			sliderrow.appendChild(sliderslide);
+			sliderslide.appendChild(slideractive);
+			sliderrow.appendChild(sliderval);
+			settings.parent.appendChild(sliderrow);
+			// events
+			this.slider = sliderslide;
+			this.slideractive = slideractive;
+			sliderslide.addEventListener("mousedown", this.push(color));
+		}
+		Slider.prototype.reposition = function (left) {
+			this.slideractive.style.left = left + "px";
+		};
+		Slider.prototype.push = function (color) {
+			var slider = this, push = this.push, colors = color.color();
+			return function (e) {
+				function onMouseMove(e) {
+					colors[slider.index] = (e.clientX - getOffset(slider.slider)[0]) / slider.width * color.settings("maximum")[slider.index];
+					color.color(colors);
+					slider.reposition(color.color()[slider.index] / color.settings("maximum")[slider.index] * slider.width - Math.round(slider.slideractive.offsetWidth / 2));
+				}
+				function onMouseUp() {
+					window.removeEventListener("mousemove", onMouseMove);
+					window.removeEventListener("mouseup", onMouseUp);
+				}
+				window.addEventListener("mousemove", onMouseMove);
+				window.addEventListener("mouseup", onMouseUp);
+			};
+		};
+		for (i = 0, len = val.length; i < len; i += 1) {
+			sliders[i] = new Slider({ index: i });
+		}
+		return sliders;
+	};
+}());
