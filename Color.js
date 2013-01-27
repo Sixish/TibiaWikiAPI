@@ -1,16 +1,11 @@
 (function (scope) {
 	"use strict";
-	/*jslint browser: true*/
 	var Math = window.Math;
-	// math functions
 	function wrap(val, min, max) {
-		var interval;
-		max = max + 1;
-		interval = max - min;
-		return min + (val % interval);
+		return (val < min || val > max) ? ((max + val) % (max - min)) + min : val;
 	}
 	function clip(val, min, max) {
-		return val > max ? max : val < min ? min : val;
+		return Math.min(Math.max(val, min), max);
 	}
 	function Color(model, color) {
 		if (typeof model === 'object' && model.length) {
@@ -394,10 +389,8 @@
 	"use strict";
 	/*globals window*/
 	var Color = window.Color;
-	Color.prototype.slider = function (parent) {
+	Color.prototype.slider = function () {
 		var color = this,
-			min = this.settings("minimum"),
-			max = this.settings("maximum"),
 			val = this.color(),
 			names = this.settings("names"),
 			i,
@@ -448,7 +441,7 @@
 			this.slideractive.style.left = left + "px";
 		};
 		Slider.prototype.push = function (color) {
-			var slider = this, push = this.push, colors = color.color();
+			var slider = this, colors = color.color();
 			return function (e) {
 				function onMouseMove(e) {
 					colors[slider.index] = (e.clientX - getOffset(slider.slider)[0]) / slider.width * color.settings("maximum")[slider.index];
@@ -461,6 +454,7 @@
 				}
 				window.addEventListener("mousemove", onMouseMove);
 				window.addEventListener("mouseup", onMouseUp);
+				onMouseMove(e);
 			};
 		};
 		for (i = 0, len = val.length; i < len; i += 1) {
