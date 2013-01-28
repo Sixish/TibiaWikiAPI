@@ -1,8 +1,11 @@
+// /*jslint todo: true, white: true, browser: true */
 (function (scope) {
 	"use strict";
 	var Math = window.Math;
 	function wrap(val, min, max) {
-		return (val < min || val > max) ? ((max + val) % (max - min)) + min : val;
+		if (!(val < min || val >= max)) { return val; }
+		while (val < min) { val += max - min; }
+		return min + (val - min) % (max - min);
 	}
 	function clip(val, min, max) {
 		return Math.min(Math.max(val, min), max);
@@ -50,8 +53,8 @@
 				color[i] = Math.round(color[i] / prec[i]) * prec[i];
 			}
 			if (oor && (color[i] > max[i] || color[i] < min[i])) {
-				if (oor === 'clip') { color[i] = clip(color[i], min[i], max[i]); }
-				if (oor === 'wrap') { color[i] = wrap(color[i], min[i], max[i]); }
+				if (oor[i] === 'clip') { color[i] = clip(color[i], min[i], max[i]); }
+				if (oor[i] === 'wrap') { color[i] = wrap(color[i], min[i], max[i]); }
 			}
 		}
 		return color;
@@ -375,14 +378,15 @@
 	rgb.settings("maximum", [255, 255, 255]);
 	rgb.settings("names", [ "Red", "Green", "Blue" ]);
 	rgb.settings("precision", [1, 1, 1]);
-	rgb.settings("outOfRange", "clip");
+	rgb.settings("outOfRange", [ "clip", "clip", "clip" ]);
 	// HSV settings
 	hsv = new Color("HSV", [0, 0, 0]);
-	hsv.settings("mimimum", [0, 0, 0]);
+	//hsv.settings("minimum", [0, 0, 0]);
+	hsv.settings("minimum", [50, 0.5, 0.2]);
 	hsv.settings("maximum", [360, 1, 1]);
 	hsv.settings("names", [ "Hue", "Saturation", "Value" ]);
 	hsv.settings("precision", [1, 0.001, 0.001]);
-	hsv.settings("outOfRange", "wrap");
+	hsv.settings("outOfRange", [ "wrap", "clip", "clip" ]);
 	// ...
 }(window));
 (function colorSlider() {
@@ -390,12 +394,7 @@
 	/*globals window*/
 	var Color = window.Color;
 	Color.prototype.slider = function () {
-		var color = this,
-			val = this.color(),
-			names = this.settings("names"),
-			i,
-			len,
-			sliders = [];
+		var color = this, val = this.color(), names = this.settings("names"), i, len, sliders = [];
 		function getOffset(element) {
 			var x = 0, y = 0;
 			while (element && !isNaN(element.offsetTop) && !isNaN(element.offsetLeft)) {
@@ -421,11 +420,10 @@
 			slideractive.className = 'slider';
 			sliderval.className = 'number';
 			// styles
-			this.width = 255;
-			sliderslide.style.width = this.width + "px";
+			this.width = this.width(275);
+			sliderslide.style.width = this.width() + "px";
 			// text
 			sliderhead.appendChild(document.createTextNode(names[i]));
-			sliderval.appendChild(document.createTextNode(val[i]));
 			// append children
 			sliderrow.appendChild(sliderhead);
 			sliderrow.appendChild(sliderslide);
@@ -435,18 +433,31 @@
 			// events
 			this.slider = sliderslide;
 			this.slideractive = slideractive;
+			this.value = sliderval;
+			this.set(color.color());
 			sliderslide.addEventListener("mousedown", this.push(color));
 		}
-		Slider.prototype.reposition = function (left) {
-			this.slideractive.style.left = left + "px";
+		Slider.prototype.width = function (width) {
+			width = width || 275;
+			return function setWidth(set) {
+				if (set === undefined) { return width; }
+				width = set;
+			};
+		};
+		Slider.prototype.set = function (c) {
+			var slider = this, colors = c, max = color.settings("maximum"), min = color.settings("minimum");
+			color.color(c);
+			this.slideractive.style.left = Math.round((colors[slider.index] - min[slider.index]) / (max[slider.index] - min[slider.index]) * slider.width() - (slider.slideractive.offsetWidth / 2)) + "px";
+			// remove all the children and then add the value
+			while (this.value.firstChild) { this.value.removeChild(this.value.firstChild); }
+			this.value.appendChild(document.createTextNode(c[this.index]));
 		};
 		Slider.prototype.push = function (color) {
 			var slider = this, colors = color.color();
 			return function (e) {
 				function onMouseMove(e) {
-					colors[slider.index] = (e.clientX - getOffset(slider.slider)[0]) / slider.width * color.settings("maximum")[slider.index];
-					color.color(colors);
-					slider.reposition(color.color()[slider.index] / color.settings("maximum")[slider.index] * slider.width - Math.round(slider.slideractive.offsetWidth / 2));
+					colors[slider.index] = color.settings("minimum")[slider.index] + ((e.clientX - getOffset(slider.slider)[0]) / slider.width() * (color.settings("maximum")[slider.index] - color.settings("minimum")[slider.index]));
+					slider.set(colors);
 				}
 				function onMouseUp() {
 					window.removeEventListener("mousemove", onMouseMove);
