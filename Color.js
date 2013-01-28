@@ -381,11 +381,10 @@
 	rgb.settings("outOfRange", [ "clip", "clip", "clip" ]);
 	// HSV settings
 	hsv = new Color("HSV", [0, 0, 0]);
-	//hsv.settings("minimum", [0, 0, 0]);
-	hsv.settings("minimum", [50, 0.5, 0.2]);
+	hsv.settings("minimum", [0, 0, 0]);
 	hsv.settings("maximum", [360, 1, 1]);
 	hsv.settings("names", [ "Hue", "Saturation", "Value" ]);
-	hsv.settings("precision", [1, 0.001, 0.001]);
+	hsv.settings("precision", [1, 0.01, 0.01]);
 	hsv.settings("outOfRange", [ "wrap", "clip", "clip" ]);
 	// ...
 }(window));
@@ -474,3 +473,4 @@
 		return sliders;
 	};
 }());
+console.log(new Color("HSV", [50, 1, 1]).slider(document.getElementsByTagName('body')[0]));
