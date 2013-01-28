@@ -1,4 +1,4 @@
-// /*jslint todo: true, white: true, browser: true */
+var scope = window;
 (function (scope) {
 	"use strict";
 	var Math = window.Math;
@@ -81,13 +81,22 @@
 			return rgb;
 		}
 	};
-	Color.prototype.color = function (color) {
-		color = this.validate(color) || [0, 0, 0];
+	Color.prototype.color = function (c) {
+		var color = [], i, len;
+		if (c === undefined) { c = this.settings("minimum"); }
+		for (i = 0, len = c.length; i < len; i += 1) {
+			color[i] = c[i];
+		}
 		return function setColor(channels) {
-			var type;
+			var type, i, len;
 			if (channels === undefined) { return color; }
 			type = typeof channels;
-			if (type === 'object' && channels.length) { color = channels; }
+			if (type === 'object' && channels.length) {
+				color = [];
+				for (i = 0, len = channels.length; i < len; i += 1) {
+					color[i] = channels[i];
+				}
+			}
 			if (type === 'string') { color = this.getColorByName(channels); }
 			if (type === 'number') {
 				/*jslint bitwise: true*/
@@ -214,6 +223,7 @@
 		for (i = 0, len = color.length; i < len; i += 1) {
 			color[i] += type === 'object' ? shiftBy[i] : shiftBy;
 		}
+		this.validate();
 		return this;
 	};
 	Color.prototype.amplify = function (amplitude) {
@@ -277,11 +287,11 @@
 	};
 	// expose to window/scope
 	scope.Color = Color;
-}(window));
-(function convert(window) {
+}(scope));
+(function convert(scope) {
 	"use strict";
 	/*globals Color*/
-	var Color = window.Color, color;
+	var Color = scope.Color, color;
 	/* RGB -> */
 	color = new Color("RGB", [0, 0, 0]);
 	color.convert("RGB", function (rgb) { return rgb; });
@@ -367,11 +377,11 @@
 	color.convert("HSL", function (lab) { /* TODO */ });
 	color.convert("YUV", function (lab) { /* TODO */ });
 	color.convert("LAB", function (lab) { return lab; });
-}(window));
-(function setup(window) {
+}(scope));
+(function setup(scope) {
 	"use strict";
 	/*globals Color*/
-	var Color = window.Color, rgb, hsv;
+	var Color = scope.Color, rgb, hsv;
 	// RGB settings
 	rgb = new Color("RGB", [0, 0, 0]);
 	rgb.settings("minimum", [0, 0, 0]);
@@ -384,16 +394,20 @@
 	hsv.settings("minimum", [0, 0, 0]);
 	hsv.settings("maximum", [360, 1, 1]);
 	hsv.settings("names", [ "Hue", "Saturation", "Value" ]);
-	hsv.settings("precision", [1, 0.01, 0.01]);
+	hsv.settings("precision", [10, 0.01, 0.01]);
 	hsv.settings("outOfRange", [ "wrap", "clip", "clip" ]);
 	// ...
-}(window));
-(function colorSlider() {
+}(scope));
+(function colorSlider(scope) {
 	"use strict";
 	/*globals window*/
-	var Color = window.Color;
-	Color.prototype.slider = function () {
-		var color = this, val = this.color(), names = this.settings("names"), i, len, sliders = [];
+	var Color = scope.Color;
+	Color.prototype.slider = function (parent) {
+		var color = this, val = this.color(), names = this.settings("names"), i, len, sliders = [], container;
+		parent = parent || document.getElementById("API-Interface");
+		container = document.createElement('div');
+		container.className = 'colorpicker';
+		parent.appendChild(container);
 		function getOffset(element) {
 			var x = 0, y = 0;
 			while (element && !isNaN(element.offsetTop) && !isNaN(element.offsetLeft)) {
@@ -406,7 +420,6 @@
 		function Slider(settings) {
 			var sliderrow, sliderhead, sliderslide, slideractive, sliderval;
 			settings = settings || {};
-			settings.parent = settings.parent || document.getElementById("API-Interface");
 			this.index = settings.index || 0;
 			sliderrow = document.createElement('div');
 			sliderhead = document.createElement('div');
@@ -428,7 +441,7 @@
 			sliderrow.appendChild(sliderslide);
 			sliderslide.appendChild(slideractive);
 			sliderrow.appendChild(sliderval);
-			settings.parent.appendChild(sliderrow);
+			container.appendChild(sliderrow);
 			// events
 			this.slider = sliderslide;
 			this.slideractive = slideractive;
@@ -452,8 +465,9 @@
 			this.value.appendChild(document.createTextNode(c[this.index]));
 		};
 		Slider.prototype.push = function (color) {
-			var slider = this, colors = color.color();
+			var slider = this;
 			return function (e) {
+				var colors = color.color();
 				function onMouseMove(e) {
 					colors[slider.index] = color.settings("minimum")[slider.index] + ((e.clientX - getOffset(slider.slider)[0]) / slider.width() * (color.settings("maximum")[slider.index] - color.settings("minimum")[slider.index]));
 					slider.set(colors);
@@ -472,5 +486,4 @@
 		}
 		return sliders;
 	};
-}());
-console.log(new Color("HSV", [50, 1, 1]).slider(document.getElementsByTagName('body')[0]));
+}(scope));
