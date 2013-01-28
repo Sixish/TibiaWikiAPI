@@ -347,7 +347,7 @@ var scope = window;
 				rgb = [ chroma, 0, mI ];
 			}
 		}
-		return new Color((rgb[0] + vmc) * 255, (rgb[1] + vmc) * 255, (rgb[2] + vmc) * 255).color();
+		return new Color("HSV", [ (rgb[0] + vmc) * 255, (rgb[1] + vmc) * 255, (rgb[2] + vmc) * 255 ]).color();
 	});
 	color.convert("HSV", function (hsv) { return hsv; });
 	color.convert("HSL", function (hsv) { /* TODO */ });
