@@ -42,22 +42,23 @@ var scope = window;
 		return ret;
 	};
 	Color.prototype.validate = function (color) {
-		var max, min, oor, prec, i, len;
+		var max, min, oor, prec, i, len, ret = [];
 		color = color || this.color();
 		max = this.settings("maximum");
 		min = this.settings("minimum");
 		oor = this.settings("outOfRange");
 		prec = this.settings("precision");
 		for (i = 0, len = color.length; i < len; i += 1) {
+			ret[i] = color[i];
 			if (prec !== undefined) {
-				color[i] = Math.round(color[i] / prec[i]) * prec[i];
+				ret[i] = Math.round(ret[i] / prec[i]) * prec[i];
 			}
-			if (oor && (color[i] > max[i] || color[i] < min[i])) {
-				if (oor[i] === 'clip') { color[i] = clip(color[i], min[i], max[i]); }
-				if (oor[i] === 'wrap') { color[i] = wrap(color[i], min[i], max[i]); }
+			if (oor && (ret[i] > max[i] || ret[i] < min[i])) {
+				if (oor[i] === 'clip') { ret[i] = clip(ret[i], min[i], max[i]); }
+				if (oor[i] === 'wrap') { ret[i] = wrap(ret[i], min[i], max[i]); }
 			}
 		}
-		return color;
+		return ret;
 	};
 	Color.prototype.hexadecimal = function (input) {
 		var type = typeof input, hex, rgb, offset = 0;
@@ -82,12 +83,10 @@ var scope = window;
 		}
 	};
 	Color.prototype.color = function (c) {
-		var color = [], i, len;
+		var color = [], that = this;
 		if (c === undefined) { c = this.settings("minimum"); }
-		for (i = 0, len = c.length; i < len; i += 1) {
-			color[i] = c[i];
-		}
-		return function setColor(channels) {
+		color = this.validate(c);
+		function setColor(channels) {
 			var type, i, len;
 			if (channels === undefined) { return color; }
 			type = typeof channels;
@@ -97,16 +96,17 @@ var scope = window;
 					color[i] = channels[i];
 				}
 			}
-			if (type === 'string') { color = this.getColorByName(channels); }
+			if (type === 'string') { color = that.getColorByName(channels); }
 			if (type === 'number') {
 				/*jslint bitwise: true*/
 				color = [ channels >> 16 & 0xFF, (channels - ((channels >> 16) << 16) >> 8) & 0xFF, (channels - ((channels >> 8) << 8)) & 0xFF ];
 				/*jslint bitwise: false*/
 			}
-			color = this.validate(color);
-			this.hook("onChangeColor").fire();
-			return this;
-		};
+			color = that.validate(color);
+			that.hook("onChangeColor").fire();
+			return that;
+		}
+		return setColor;
 	};
 	Color.prototype.model = function (model) {
 		model = model || "RGB";
@@ -347,7 +347,7 @@ var scope = window;
 				rgb = [ chroma, 0, mI ];
 			}
 		}
-		return new Color("HSV", [ (rgb[0] + vmc) * 255, (rgb[1] + vmc) * 255, (rgb[2] + vmc) * 255 ]).color();
+		return new Color("RGB", [ (rgb[0] + vmc) * 255, (rgb[1] + vmc) * 255, (rgb[2] + vmc) * 255 ]).color();
 	});
 	color.convert("HSV", function (hsv) { return hsv; });
 	color.convert("HSL", function (hsv) { /* TODO */ });
