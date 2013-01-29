@@ -1,4 +1,4 @@
-var scope = window;
+var scope = theme;
 (function (scope) {
 	"use strict";
 	var Math = window.Math;
@@ -394,7 +394,7 @@ var scope = window;
 	hsv.settings("minimum", [0, 0, 0]);
 	hsv.settings("maximum", [360, 1, 1]);
 	hsv.settings("names", [ "Hue", "Saturation", "Value" ]);
-	hsv.settings("precision", [10, 0.01, 0.01]);
+	hsv.settings("precision", [1, 0.01, 0.01]);
 	hsv.settings("outOfRange", [ "wrap", "clip", "clip" ]);
 	// ...
 }(scope));
@@ -457,9 +457,11 @@ var scope = window;
 			};
 		};
 		Slider.prototype.set = function (c) {
-			var slider = this, colors = c, max = color.settings("maximum"), min = color.settings("minimum");
-			color.color(c);
-			this.slideractive.style.left = Math.round((colors[slider.index] - min[slider.index]) / (max[slider.index] - min[slider.index]) * slider.width() - (slider.slideractive.offsetWidth / 2)) + "px";
+			var slider = this, max, min;
+			c = color.color(c).color();
+			max = color.settings("maximum");
+			min = color.settings("minimum");
+			this.slideractive.style.left = Math.round((c[slider.index] - min[slider.index]) / (max[slider.index] - min[slider.index]) * slider.width() - (slider.slideractive.offsetWidth / 2)) + "px";
 			// remove all the children and then add the value
 			while (this.value.firstChild) { this.value.removeChild(this.value.firstChild); }
 			this.value.appendChild(document.createTextNode(c[this.index]));
