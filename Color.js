@@ -403,11 +403,21 @@ var scope = window;
 	/*globals window*/
 	var Color = scope.Color;
 	Color.prototype.slider = function (parent) {
-		var color = this, val = this.color(), names = this.settings("names"), i, len, sliders = [], container;
+		var color = this, val = this.color(), i, len, sliders = [], container, slidersContainer, link, convert, models;
 		parent = parent || document.getElementById("API-Interface");
 		container = document.createElement('div');
 		container.className = 'colorpicker';
+		// links to convert to RGB | HSV | YUV | HSL | ...
+		models = [ "RGB", "HSV", "YUV", "HSL" ];
+		convert = document.createElement('div');
+		convert.className = 'models';
+		//convert.style.clear = 'both';
+		container.appendChild(convert);
 		parent.appendChild(container);
+		//sliders
+		slidersContainer = document.createElement('div');
+		slidersContainer.className = 'sliders';
+		container.appendChild(slidersContainer);
 		function getOffset(element) {
 			var x = 0, y = 0;
 			while (element && !isNaN(element.offsetTop) && !isNaN(element.offsetLeft)) {
@@ -418,8 +428,9 @@ var scope = window;
 			return [ x, y ];
 		}
 		function Slider(settings) {
-			var sliderrow, sliderhead, sliderslide, slideractive, sliderval;
+			var sliderrow, sliderhead, sliderslide, slideractive, sliderval, names;
 			settings = settings || {};
+			names = color.settings("names");
 			this.index = settings.index || 0;
 			sliderrow = document.createElement('div');
 			sliderhead = document.createElement('div');
@@ -435,13 +446,13 @@ var scope = window;
 			this.width = this.width(275);
 			sliderslide.style.width = this.width() + "px";
 			// text
-			sliderhead.appendChild(document.createTextNode(names[i]));
+			sliderhead.appendChild(document.createTextNode(names[this.index]));
 			// append children
 			sliderrow.appendChild(sliderhead);
 			sliderrow.appendChild(sliderslide);
 			sliderslide.appendChild(slideractive);
 			sliderrow.appendChild(sliderval);
-			container.appendChild(sliderrow);
+			slidersContainer.appendChild(sliderrow);
 			// events
 			this.slider = sliderslide;
 			this.slideractive = slideractive;
@@ -483,9 +494,41 @@ var scope = window;
 				onMouseMove(e);
 			};
 		};
-		for (i = 0, len = val.length; i < len; i += 1) {
-			sliders[i] = new Slider({ index: i });
-		}
-		return sliders;
+		(function () {
+			var models = [ "RGB", "HSV", "YUV", "HSL" ], active, onClick;
+			function find(arr, val) {
+				var i = 0, len = arr.length;
+				for (i; i < len; i += 1) {
+					if (arr[i] === val) {
+						return i;
+					}
+				}
+			}
+			onClick = function (i) {
+				return function () {
+					var j;
+					color.color(color.convert(models[i]));
+					color.model(models[i]);
+					active = i;
+					val = color.color();
+					this.style.fontWeight = 'bold';
+					while (slidersContainer.firstChild) { slidersContainer.removeChild(slidersContainer.firstChild); }
+					for (j = 0, len = val.length; j < len; j += 1) {
+						sliders[j] = new Slider({ index: j });
+					}
+				};
+			};
+			active = find(models, color.model());
+			// create the links
+			for (i = 0, len = models.length; i < len; i += 1) {
+				link = document.createElement('a');
+				link.appendChild(document.createTextNode(models[i]));
+				link.onclick = onClick(i);
+				link.style.cursor = 'pointer';
+				convert.appendChild(link);
+				convert.appendChild(document.createTextNode(" "));
+				if (active === i) { link.onclick(); }
+			}
+		}());
 	};
 }(scope));
