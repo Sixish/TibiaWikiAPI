@@ -1,4 +1,4 @@
-var scope = theme;
+var scope = window;
 (function (scope) {
 	"use strict";
 	var Math = window.Math;
