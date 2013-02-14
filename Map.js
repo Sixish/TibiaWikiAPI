@@ -75,9 +75,11 @@
 	MapPoint.create = Factory.create;
 	MapPoint.instances = new Factory.Instances();
 	MapPoint.prototype.position = function (pos) {
-		this.posx = pos[0];
-		this.posy = pos[1];
-		this.posz = pos[2];
+		// if static, don't do anything
+		if (this.type === 'static') { return this; }
+		// if not static, reposition the map element
+		this.element.style.left = pos[0] + "px";
+		this.element.style.top = pos[1] + "px";
 		return this;
 	};
 	Map.prototype.Point = MapPoint;
@@ -220,11 +222,7 @@
 		if (subject === undefined) { return 'undefined'; }
 		return type;
 	};
-	MapPoint.prototype.constructor = MapPoint;
-	MapPoint.prototype.element = function element() {
-		if (!this.element) { this.element = document.createElement('div'); }
-		return this;
-	};
+	MapPoint.prototype.element = null;
 	MapPoint.prototype.changeMapPointPositions = function (e) {
 		var relativePosition, subject, i, len;
 		if (typeof e !== 'object') { throw new Error("changeMapPointPositions expects an object argument."); }
@@ -254,14 +252,6 @@
 			});
 		}
 		return that;
-	};
-	MapPoint.prototype.position = function (pos) {
-		// if static, don't do anything
-		if (this.type === 'static') { return this; }
-		// if not static, reposition the map element
-		this.element.style.left = pos[0] + "px";
-		this.element.style.top = pos[1] + "px";
-		return this;
 	};
 	MapPoint.prototype.tabIndex = function (index) {
 		this.element.tabIndex = index;
@@ -321,10 +311,6 @@
 		}
 		return this;
 	};
-	MapPoint.prototype.posx = MapPoint.prototype.posy = MapPoint.prototype.posz = 0;
-	MapPoint.prototype.element = null;
-	MapPoint.instances = new Factory.Instances();
-	MapPoint.create = Factory.create;
 	MapPoint.prototype.extend = Factory.prototype.extend;
 	scope.Map = Map;
 }(window));
