@@ -1,5 +1,5 @@
-(function (scope) {
-  "use strict";
+(function map(scope) {
+	"use strict";
 	/* Factory - Reference methods here */
 	function Factory() {}
 	Factory.Instances = function Instances() {};
@@ -10,7 +10,7 @@
 	Factory.create = function create(owner) {
 		var instance = new this();
 		this.instances.push(instance);
-		this.prototype.owner = owner;
+		if (owner) { instance.owner = owner; }
 		if (typeof this.init === 'function') { this.init(); }
 		if (typeof instance.init === 'function') { instance.init(); }
 		return instance;
@@ -66,30 +66,42 @@
 				}
 			}
 		}
+		return this;
 	};
 	function Map() {}
-	function MapElement() {
-		var types = [], i, len;
-		for (i = 0, len = arguments.length; i < len; i += 1) {
-			types[i] = MapElement.type(arguments[i]);
-		}
-	}
+	function MapPoint() {}
+	MapPoint.prototype.constructor = MapPoint;
+	MapPoint.prototype.posx = MapPoint.prototype.posy = MapPoint.prototype.posz = 0;
+	MapPoint.create = Factory.create;
+	MapPoint.instances = new Factory.Instances();
+	MapPoint.prototype.position = function (pos) {
+		this.posx = pos[0];
+		this.posy = pos[1];
+		this.posz = pos[2];
+		return this;
+	};
+	Map.prototype.Point = MapPoint;
 	Map.prototype.constructor = Map;
 	Map.instances = new Factory.Instances();
 	Map.create = Factory.create;
 	Map.prototype.extend = Factory.prototype.extend;
-	Map.prototype.Element = MapElement;
-	Map.prototype.textOverride = null;
-	Map.prototype.init = function () {
-		this.element = document.createElement('div');
-		this.element.style.width = '300px';
-		this.element.style.height = '300px';
-		this.element.style.border = '1px solid #000';
-		this.element.style.position = 'relative';
+	Map.prototype.Element = MapPoint;
+	Map.prototype.init = function init() {
+		var that = this;
+		that.element = document.createElement('div');
+		that.element.style.width = '300px';
+		that.element.style.height = '300px';
+		that.element.style.border = '1px solid #000';
+		that.element.style.position = 'relative';
+		that.element.addEventListener('click', function clickEvent() {
+			this.focus();
+			that.tabindex = 0;
+		});
+		return that;
 	};
-	Map.prototype.crosshairs = function (offset) {
-		MapElement.create(this).type('static').css({ borderBottom: "0.1em dotted grey", height: "50%", position: "absolute", width: "100%" });
-		MapElement.create(this).type('static').css({ borderRight: "0.1em dotted grey", height: "100%", position: "absolute", width: "50%" });
+	Map.prototype.crosshairs = function () {
+		MapPoint.create(this).type('static').tabIndex('-1').css({ borderBottom: "0.1em dotted grey", height: "50%", position: "absolute", width: "100%" });
+		MapPoint.create(this).type('static').tabIndex('-1').css({ borderRight: "0.1em dotted grey", height: "100%", position: "absolute", width: "50%" });
 	};
 	Map.prototype.parent = function (parent) {
 		parent.appendChild(this.element);
@@ -99,34 +111,91 @@
 		this.element.style.backgroundImage = "url('" + src + "')";
 		return this;
 	};
-	Map.prototype.position = function (x, y, z) {
-		var pos;
-		if (x === undefined) {
-			pos = this.element.style.backgroundPosition.replace(/px/g, "").split(" ");
-			x = +pos[0] || 0;
-			y = +pos[1] || 0;
-			return [x, y];
+	Map.prototype.posx = 0;
+	Map.prototype.posy = 0;
+	Map.prototype.posz = 0;
+	Map.prototype.update = function updateMap() {
+		var i, len;
+		if (this.images[this.posz] === undefined) { throw new Error('Map coordinates out of range (z: ' + this.posz + ')'); }
+		this.element.style.backgroundPosition = [ this.posx, 'px', ' ', this.posy, 'px' ].join('');
+		this.element.style.backgroundImage = 'url("' + this.images[this.posz] + '")';
+		for (i = 0, len = this.Element.instances.length; i < len; i += 1) {
+			this.Element.instances[i].position(this.posx, this.posy);
 		}
-		this.element.style.backgroundPosition = x + "px" + " " + y + "px";
+		return this;
+	};
+	Map.prototype.position = function (input) {
+		var xyz, x, y, z;
+		if (!(typeof input === 'object' && input.length)) { xyz = arguments; } else { xyz = input; }
+		x = xyz[0];
+		y = xyz[1];
+		z = xyz[2];
+		if (x === undefined) {
+			x = this.posx;
+			y = this.posy;
+			z = this.posz;
+			return [x, y, z];
+		}
+		this.posx = x;
+		this.posy = y;
+		this.posz = z;
+		this.update();
 		this.event.fire('changePosition');
 	};
 	Map.prototype.event = new MapEvent();
 	Map.prototype.moveIncremental = function (dest, time, interval) {
 		var i = 0, occ, diff, pos = this.position(), that = this, timer;
-		if (!(typeof dest === 'object' && dest.length === 2)) { return false; }
+		if (!(typeof dest === 'object' && dest.length === 3)) { return false; }
 		if (typeof time !== 'number') { return false; }
 		if (typeof interval !== 'number') { interval = 100; }
-		diff = [ ((dest[0] - pos[0]) / time) * interval, ((dest[1] - pos[1]) / time) * interval ];
+		diff = [ ((dest[0] - pos[0]) / time) * interval, ((dest[1] - pos[1]) / time) * interval, ((dest[2] - pos[2]) / time) * interval ];
 		occ = time / interval;
 		function performAnimation() {
-			that.position(Math.round(pos[0] + diff[0] * i), Math.round(pos[1] + diff[1] * i));
+			that.position(Math.round(pos[0] + diff[0] * i), Math.round(pos[1] + diff[1] * i), Math.round(pos[2] + diff[2] * i));
 			i += 1;
 			if (i > occ) { window.clearInterval(timer); }
 		}
 		timer = window.setInterval(performAnimation, interval);
 		return this;
 	};
-	MapElement.type = function (subject) {
+	Map.prototype.image = function setImage(z, img) {
+		var im;
+		if (img !== undefined) {
+			if (typeof this.images !== 'object') { this.images = {}; }
+			this.images[z] = img;
+			if (this.autoload) {
+				im = new Image();
+				im.src = img;
+			}
+		}
+		return this;
+	};
+	Map.prototype.moveFunc = function (func, limit, interval) {
+		var timer, that = this;
+		function perform() {
+			that.position(func(that.position()));
+			if (timer >= limit) { window.clearInterval(timer); }
+		}
+		timer = window.setInterval(perform, interval);
+		return this;
+	};
+	Map.prototype.children = [];
+	Map.prototype.shift = function (x, y, z) {
+		if (x === undefined) { throw new Error('coordinate offsets are undefined (Map.shift).'); }
+		if (y === undefined && z === undefined) { y = z = x; }
+		this.position(this.posx + (x || 0), this.posy + (y || 0), this.posz + (z || 0));
+		return this;
+	};
+	Map.prototype.amplify = function (x, y, z) {
+		if (x === undefined) { throw new Error('coordinate offsets are undefined (Map.shift).'); }
+		if (y === undefined && z === undefined) { y = z = x; }
+		this.position(this.posx * (x || 1), this.posy * (y || 1), this.posz * (z || 1));
+		return this;
+	};
+	Map.prototype.point = function point(pos) {
+		return MapPoint.create(this).position(pos);
+	};
+	MapPoint.type = function (subject) {
 		var type = typeof subject, regex;
 		if (type === 'object') {
 			if (subject.length !== undefined) { return 'array'; }
@@ -151,14 +220,14 @@
 		if (subject === undefined) { return 'undefined'; }
 		return type;
 	};
-	MapElement.prototype.constructor = MapElement;
-	MapElement.prototype.element = function () {
+	MapPoint.prototype.constructor = MapPoint;
+	MapPoint.prototype.element = function element() {
 		if (!this.element) { this.element = document.createElement('div'); }
 		return this;
 	};
-	MapElement.prototype.changeMapElementPositions = function (e) {
+	MapPoint.prototype.changeMapPointPositions = function (e) {
 		var relativePosition, subject, i, len;
-		if (typeof e !== 'object') { throw new Error("changeMapElementPositions expects an object argument."); }
+		if (typeof e !== 'object') { throw new Error("changeMapPointPositions expects an object argument."); }
 		if (e.position === undefined && !e.length) { throw new Error("invalid argument for changeMapPositions"); }
 		relativePosition = e.position !== undefined ? e.position : e;
 		subject = this.constructor.instances;
@@ -168,22 +237,41 @@
 		}
 		return this;
 	};
-	MapElement.prototype.init = function () {
-		this.element = document.createElement('div');
-		this.owner.element.appendChild(this.element);
-		this.owner.event.listen('changeposition', this.changeMapElementPositions);
+	MapPoint.prototype.init = function init() {
+		var that = this;
+		that.element = document.createElement('div');
+		that.element.tabIndex = "1";
+		if (that.owner) {
+			that.owner.element.appendChild(that.element);
+			that.owner.event.listen('changeposition', this.changeMapPointPositions);
+			that.owner.children.push(that);
+			that.index = that.owner.children.indexOf(that);
+			that.element.addEventListener('click', function clickEvent() {
+				that.focus = true;
+				that.owner.focus = that.index;
+				that.owner.event.fire('changeMapPointFocus');
+				return that;
+			});
+		}
+		return that;
+	};
+	MapPoint.prototype.position = function (pos) {
+		// if static, don't do anything
+		if (this.type === 'static') { return this; }
+		// if not static, reposition the map element
+		this.element.style.left = pos[0] + "px";
+		this.element.style.top = pos[1] + "px";
 		return this;
 	};
-	MapElement.prototype.position = function (pos) {
-		this.element.style.left = pos[0];
-		this.element.style.top = pos[1];
+	MapPoint.prototype.tabIndex = function (index) {
+		this.element.tabIndex = index;
 		return this;
 	};
-	MapElement.prototype.type = function (type) {
+	MapPoint.prototype.type = function (type) {
 		if (type === 'static') { this.type = 'static'; }
 		return this;
 	};
-	MapElement.prototype.text = function (txt) {
+	MapPoint.prototype.text = function (txt) {
 		if (!this.element) {
 			this.element = document.createElement('div');
 		}
@@ -191,24 +279,39 @@
 		this.element.appendChild(document.createTextNode(txt));
 		return this;
 	};
-	MapElement.prototype.alt = function (desc) {
+	MapPoint.prototype.alt = function (desc) {
 		if (!this.element) { this.element = document.createElement('div'); }
 		//while (this.element.firstChild) { this.element.removeChild(this.element.firstChild); }
 		if (this.element.tagName === 'IMG') { this.element.alt = desc; }
 		if (this.element.tagName === 'DIV') { this.element.title = desc; }
 		return this;
 	};
-	MapElement.prototype.image = function (filename) {
-		if (!this.element) { this.element = document.createElement('div'); }
-		this.element.style.backgroundImage = "url(" + filename + ")";
-		return this;
+	MapPoint.prototype.image = function (xyz, filename) {
+		var i, len, img;
+		this.files = this.files || [];
+		if ((typeof filename !== 'string' || typeof xyz !== 'number') && typeof xyz !== 'object' && typeof xyz !== 'number') { throw new Error('Invalid arguments to MapPoint.image'); }
+		if (typeof filename === 'string' && typeof xyz === 'number') {
+			this.files[xyz] = filename;
+			if (this.autoload) {
+				img = new Image();
+				img.src = filename;
+			}
+			return this;
+		}
+		if (xyz === 'object' && xyz.length !== undefined) {
+			for (i = 0, len = xyz.length; i < len; i += 1) {
+				this.files[i] = xyz[i];
+			}
+			return this;
+		}
+		throw new Error("unknown error.");
 	};
-	MapElement.prototype.parent = function (parent) {
+	MapPoint.prototype.parent = function (parent) {
 		if (!this.element) { this.element = document.createElement('div'); }
 		parent.appendChild(this.element);
 		return this;
 	};
-	MapElement.prototype.css = function (css) {
+	MapPoint.prototype.css = function (css) {
 		var prop;
 		if (!this.element) { this.element = document.createElement('div'); }
 		for (prop in css) {
@@ -218,9 +321,10 @@
 		}
 		return this;
 	};
-	MapElement.instances = new Factory.Instances();
-	MapElement.create = Factory.create;
-	MapElement.prototype.extend = Factory.prototype.extend;
-	MapElement.prototype.extend({ "element": null, pos: [0, 0, 0] });
+	MapPoint.prototype.posx = MapPoint.prototype.posy = MapPoint.prototype.posz = 0;
+	MapPoint.prototype.element = null;
+	MapPoint.instances = new Factory.Instances();
+	MapPoint.create = Factory.create;
+	MapPoint.prototype.extend = Factory.prototype.extend;
 	scope.Map = Map;
 }(window));
